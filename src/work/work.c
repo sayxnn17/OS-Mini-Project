@@ -60,6 +60,18 @@ int main() {
     listen(server_fd, 5);
 
     printf("[WORKER] Active and waiting...\n");
+    
 
-    return 0;
+
+ while (1) {
+        client_sock = accept(server_fd, (struct sockaddr*)&addr, &len);
+
+        pthread_t tid;
+        int *p = malloc(sizeof(int));
+        *p = client_sock;
+
+        pthread_create(&tid, NULL, handle_master, p);
+        pthread_detach(tid);
+    }
+return 0;
 }
