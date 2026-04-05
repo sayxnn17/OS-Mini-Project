@@ -40,3 +40,26 @@ void* handle_master(void* arg) {
     close(sock);
     return NULL;
 }
+
+int main() {
+
+    int server_fd, client_sock;
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(PORT);
+
+    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr));
+    listen(server_fd, 5);
+
+    printf("[WORKER] Active and waiting...\n");
+
+    return 0;
+}
