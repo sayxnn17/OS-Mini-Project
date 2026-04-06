@@ -73,9 +73,8 @@ The aim of this project is to strengthen understanding of Operating System conce
 ---
 
 ## 🔮 Future Improvements
-- Add GUI interface
-- Implement advanced scheduling algorithms
-- Introduce multi-threading
+
+- Introduce multi-procesing like feature across the machines
 - Improve error handling and robustness
 
 ---
