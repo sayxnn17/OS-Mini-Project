@@ -1,14 +1,25 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+// ===== STANDARD LIBRARIES =====
+#include <stdio.h>      // input/output
+#include <stdlib.h>     // system(), exit()
+#include <string.h>     // string operations
+#include <unistd.h>     // sleep(), close()
 
-#define PORT 5000
-#define BUFFER_SIZE 1024
+// ===== THREADING =====
+#include <pthread.h>    // multithreading
+
+// ===== NETWORKING =====
+#include <arpa/inet.h>  // sockets
+#include <sys/sysinfo.h> // getloadavg, CPU cores
+
+// ===== PORT DEFINITIONS =====
+#define PORT_TCP 5000   // TCP → task execution
+#define PORT_UDP 5001   // UDP → gossip communication
+
+// ===== TIMEOUT =====
+// Prevent infinite loops
+#define TIMEOUT_SEC "5s"
 
 #endif
