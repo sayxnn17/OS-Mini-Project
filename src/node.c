@@ -122,4 +122,29 @@ void* listen_load(void* arg) {
     }
     return NULL;
 }
+// ---------------- TASK EXECUTION ----------------
+void* handle_task(void* arg) {
+    int sock = *(int*)arg;
+    free(arg);
+    char buf[1024] = {0};
 
+    if (read(sock, buf, sizeof(buf)) > 0 && strncmp(buf, "EXEC", 4) == 0) {
+        system("chmod +x /tmp/payload");
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "timeout %s /tmp/payload > /tmp/out.txt", TIMEOUT_SEC);
+
+        if (system(cmd) != 0) {
+            const char *err = "ERROR: Task Crashed or Timed Out\n";
+            write(sock, err, strlen(err));
+        } else {
+            FILE *f = fopen("/tmp/out.txt", "r");
+            if (f) {
+                int n = fread(buf, 1, sizeof(buf), f);
+                fclose(f);
+                write(sock, buf, n);
+            }
+        }
+    }
+    close(sock);
+    return NULL;
+}
