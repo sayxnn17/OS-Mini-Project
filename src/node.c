@@ -1,3 +1,13 @@
+#include "common.h"
+#include <sys/socket.h>
+
+// --- Global Variables ---
+char best_ip[50] = ""; 
+char my_real_ip[50] = ""; 
+float min_load = 9999.0;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
+
 // --- Helper: Get the correct SSH username. Returns 1 if found, 0 if not. ---
 int get_ssh_user(const char *ip, char *username) {
     FILE *file = fopen("nodes.txt", "r");
@@ -65,5 +75,51 @@ void* shout_load(void* arg) {
 
         sleep(3);
     }
+}
+
+
+// ---------------- GOSSIP LISTENER ----------------
+void* listen_load(void* arg) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    int opt = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    #ifdef SO_REUSEPORT
+    setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+    #endif
+
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT_UDP);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("[!] UDP Bind failed");
+        return NULL;
+    }
+
+    char buf[50];
+    struct sockaddr_in sender;
+    socklen_t len = sizeof(sender);
+
+    while(1) {
+        memset(buf, 0, sizeof(buf));
+        recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&sender, &len);
+
+        float rcv_load;
+        if (sscanf(buf, "LOAD:%f", &rcv_load) == 1) {
+            char sender_ip[50];
+            strcpy(sender_ip, inet_ntoa(sender.sin_addr));
+            
+            if (strcmp(sender_ip, my_real_ip) != 0 && strcmp(sender_ip, "127.0.0.1") != 0) {
+                pthread_mutex_lock(&lock);
+                if (rcv_load < min_load) {
+                    min_load = rcv_load;
+                    strcpy(best_ip, sender_ip);
+                }
+                pthread_mutex_unlock(&lock);
+            }
+        }
+    }
+    return NULL;
 }
 
