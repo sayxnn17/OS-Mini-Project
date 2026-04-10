@@ -1,3 +1,25 @@
+// --- Helper: Get the correct SSH username. Returns 1 if found, 0 if not. ---
+int get_ssh_user(const char *ip, char *username) {
+    FILE *file = fopen("nodes.txt", "r");
+    if (file != NULL) {
+        char file_ip[50];
+        char file_user[50];
+
+        // Read the file line-by-line looking for a matching IP
+        while (fscanf(file, "%49s %49s", file_ip, file_user) == 2) {
+            if (strcmp(ip, file_ip) == 0) {
+                strcpy(username, file_user); // Found a match!
+                fclose(file);
+                return 1; // Success
+            }
+        }
+        fclose(file);
+    }
+    
+    // If we reach here, the file was missing or the IP wasn't inside it.
+    return 0; // Failure
+}
+
 // --- Helper: Get actual LAN IP ---
 void get_my_lan_ip(char *buffer) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
