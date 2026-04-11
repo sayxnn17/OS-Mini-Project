@@ -176,3 +176,42 @@ void* handle_task(void* arg) {
     close(sock);
     return NULL;
 }
+
+// ================= MAIN =================
+int main(int argc, char *argv[]) {
+
+    get_my_lan_ip(my_real_ip);
+
+    pthread_t t1, t2, t3;
+
+    pthread_create(&t1, NULL, shout_load, NULL);
+    pthread_create(&t2, NULL, listen_load, NULL);
+    pthread_create(&t3, NULL, tcp_server, NULL);
+
+    if (argc == 3 && strcmp(argv[1], "submit") == 0) {
+
+        printf("My IP: %s\n", my_real_ip);
+
+        double load[1];
+        getloadavg(load, 1);
+
+        float local_load = load[0] / get_nprocs();
+
+        pthread_mutex_lock(&lock);
+        min_load = local_load;
+        strcpy(best_ip, my_real_ip);
+        pthread_mutex_unlock(&lock);
+
+        sleep(4);
+
+        printf("Selected node: %s\n", best_ip);
+
+        submit_task(argv[2]);
+    }
+    else {
+        printf("Node started. IP: %s\n", my_real_ip);
+        while(1) pause();
+    }
+
+    return 0;
+}
