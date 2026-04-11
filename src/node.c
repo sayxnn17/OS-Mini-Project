@@ -177,6 +177,116 @@ void* handle_task(void* arg) {
     return NULL;
 }
 
+// ================= CLIENT =================
+// Submits task to best node
+void submit_task(char *file) {
+
+    char cmd[512];
+
+    // Compile dynamically (FIXED BUG 🔥)
+    snprintf(cmd, sizeof(cmd), "gcc %s -o /tmp/payload", file);
+
+    if (system(cmd) != 0) {
+        printf("Compilation failed\n");
+        return;
+    }
+
+    char target_ip[50];
+
+    pthread_mutex_lock(&lock);
+    strcpy(target_ip, best_ip);
+    pthread_mutex_unlock(&lock);
+
+
+retry:
+
+    // ---------- REMOTE EXECUTION ----------
+    if (strcmp(target_ip, "127.0.0.1") != 0 &&
+        strcmp(target_ip, my_real_ip) != 0) {
+
+        char user[50];
+
+        if (!get_ssh_user(target_ip, user)) {
+            printf("[!] Unknown IP. Switching local\n");
+            strcpy(target_ip, my_real_ip);
+            goto retry;
+        }
+
+        snprintf(cmd, sizeof(cmd),
+            "scp -o BatchMode=yes -o StrictHostKeyChecking=no /tmp/payload %s@%s:/tmp/payload 2>/dev/null",
+            user, target_ip);
+
+        if (system(cmd) != 0) {
+            printf("[!] SCP failed. Switching local\n");
+            strcpy(target_ip, my_real_ip);
+            goto retry;
+        }
+    }
+
+
+    // ---------- TCP CONNECT ----------
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT_TCP);
+
+    if (strcmp(target_ip, my_real_ip) == 0)
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    else
+        addr.sin_addr.s_addr = inet_addr(target_ip);
+
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(sock);
+
+        printf("[!] Connection failed. Switching local\n");
+
+        strcpy(target_ip, my_real_ip);
+        goto retry;
+    }
+
+    write(sock, "EXEC", 4);
+
+    char res[1024] = {0};
+    int n = read(sock, res, sizeof(res));
+
+
+    // ================= RESCUE SYSTEM =================
+    if (n <= 0 || strncmp(res, "ERROR", 5) == 0) {
+
+        printf("\n[!] Remote node failed!\n");
+
+        if (strcmp(target_ip, my_real_ip) != 0) {
+
+            char user[50];
+            get_ssh_user(target_ip, user);
+
+            printf("[*] Fetching progress...\n");
+
+            snprintf(cmd, sizeof(cmd),
+                "scp %s@%s:/tmp/progress.txt /tmp/progress.txt 2>/dev/null",
+                user, target_ip);
+
+            system(cmd);
+
+            printf("[*] Resuming locally...\n");
+
+            strcpy(target_ip, my_real_ip);
+            goto retry;
+        }
+        else {
+            printf("[!] Local execution failed\n");
+        }
+    }
+    else {
+        printf("\n--- RESULT (Processed by %s) ---\n%.*s\n",
+               target_ip, n, res);
+    }
+
+    close(sock);
+}
+
+
 // ================= MAIN =================
 int main(int argc, char *argv[]) {
 
