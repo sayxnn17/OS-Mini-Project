@@ -1,22 +1,43 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define PROGRESS_FILE "/tmp/progress.txt"
 
 int main() {
-    int a[2][2] = {{1, 2}, {3, 4}};
-    int b[2][2] = {{5, 6}, {7, 8}};
-    int c[2][2];
+    int start_chunk = 1;
+    long long total_data_processed = 0;
 
-    printf("Matrix Multiplication Result:\n");
+    FILE *f = fopen(PROGRESS_FILE, "r");
 
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            c[i][j] = 0;
-            for (int k = 0; k < 2; k++) {
-                c[i][j] += a[i][k] * b[k][j];
-            }
-            printf("%d ", c[i][j]);
-        }
-        printf("\n");
+    if (f != NULL) {
+        fscanf(f, "%d %lld", &start_chunk, &total_data_processed);
+        fclose(f);
+        printf("[RESUMING] From chunk %d\n", start_chunk);
+    } else {
+        printf("[STARTING NEW TASK]\n");
     }
 
+    for(int chunk = start_chunk; chunk <= 10; chunk++) {
+
+        sleep(1);
+        total_data_processed += 1000;
+
+        printf("Chunk %d done\n", chunk);
+
+        f = fopen(PROGRESS_FILE, "w");
+        if (f) {
+            fprintf(f, "%d %lld", chunk + 1, total_data_processed);
+            fclose(f);
+        }
+
+        if (chunk == 5 && start_chunk == 1) {
+            printf("CRASHING...\n");
+            exit(1);
+        }
+    }
+
+    printf("DONE: %lld\n", total_data_processed);
+    remove(PROGRESS_FILE);
     return 0;
 }
