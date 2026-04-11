@@ -122,6 +122,34 @@ void* listen_load(void* arg) {
     }
     return NULL;
 }
+
+/* ====== TCP SERVER(acts to accept execution requests) ======*/
+void* tcp_server(void* arg) {
+    int server = socket(AF_INET, SOCK_STREAM, 0);
+
+    int opt = 1;
+    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr = {0};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT_TCP);
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    bind(server, (struct sockaddr*)&addr, sizeof(addr));
+    listen(server, 5);
+
+    while(1) {
+        int client = accept(server, NULL, NULL);
+
+        int *p = malloc(sizeof(int));
+        *p = client;
+
+        pthread_t t;
+        pthread_create(&t, NULL, handle_task, p);
+        pthread_detach(t);
+    }
+}
+
 // ---------------- TASK EXECUTION ----------------
 void* handle_task(void* arg) {
     int sock = *(int*)arg;
