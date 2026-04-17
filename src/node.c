@@ -61,9 +61,12 @@ void* shout_load(void* arg) {
     addr.sin_port = htons(PORT_UDP);
     addr.sin_addr.s_addr = inet_addr("255.255.255.255");
 
-    while(1) {
+    while (1) {
         double load[1];
-        getloadavg(load, 1);
+
+        if (getloadavg(load, 1) == -1) {
+            continue;  // skip if load fetch fails
+        }
 
         float true_load = load[0] / get_nprocs();
 
