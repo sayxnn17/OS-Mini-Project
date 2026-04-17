@@ -1,3 +1,8 @@
+# This Makefile automates the compilation and execution of a decentralized
+# master-worker system. It builds both master and worker programs, provides
+# commands to run them, and includes a clean target to remove generated files
+# and temporary execution artifacts.
+
 CC = gcc
 CFLAGS = -Wall -pthread
 
