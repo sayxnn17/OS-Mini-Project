@@ -172,12 +172,17 @@ void* tcp_server(void* arg) {
 void* handle_task(void* arg) {
     int sock = *(int*)arg;
     free(arg);
+
     char buf[1024] = {0};
 
-    if (read(sock, buf, sizeof(buf)) > 0 && strncmp(buf, "EXEC", 4) == 0) {
+    int bytes = read(sock, buf, sizeof(buf) - 1);
+    if (bytes > 0 && strncmp(buf, "EXEC", 4) == 0) {
+
         system("chmod +x /tmp/payload");
+
         char cmd[256];
-        snprintf(cmd, sizeof(cmd), "timeout %s /tmp/payload > /tmp/out.txt", TIMEOUT_SEC);
+        snprintf(cmd, sizeof(cmd),
+                 "timeout %s /tmp/payload > /tmp/out.txt", TIMEOUT_SEC);
 
         if (system(cmd) != 0) {
             const char *err = "ERROR: Task Crashed or Timed Out\n";
@@ -187,10 +192,14 @@ void* handle_task(void* arg) {
             if (f) {
                 int n = fread(buf, 1, sizeof(buf), f);
                 fclose(f);
-                write(sock, buf, n);
+
+                if (n > 0) {
+                    write(sock, buf, n);
+                }
             }
         }
     }
+
     close(sock);
     return NULL;
 }
