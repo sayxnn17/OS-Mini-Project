@@ -1,80 +1,234 @@
-# OS Mini Project
+# Decentralized P2P Task Execution System
 
-## 📌 Overview
-This project is an Operating Systems mini project that demonstrates core OS concepts through a practical implementation. It simulates or implements fundamental system-level functionalities such as process/task handling, file operations, and command execution.
+## Introduction
+This project implements a decentralized peer-to-peer (P2P) system for distributed task execution. Instead of relying on a central coordinator, each node in the network independently participates in load sharing, task scheduling, and execution.
 
----
-
-## 🚀 Features
-- Task execution and management
-- File handling operations
-- Command execution support
-- Modular and structured codebase
-- Beginner-friendly implementation for OS learning
+The system uses a gossip-based protocol to exchange load information and dynamically assigns tasks to the least-loaded node. It also includes mechanisms for failure detection, timeout handling, and recovery of partially executed tasks.
 
 ---
 
-## 🛠️ Tech Stack
-- Language: C / C++
-- Compiler: GCC / G++
-- Concepts Used:
-  - Process Management
-  - File Systems
-  - Basic Scheduling (if applicable)
-  - Command Parsing
+## Problem Statement
+Traditional distributed systems often depend on a central server for task scheduling, which introduces:
+- Single point of failure  
+- Scalability limitations  
+- Increased latency under load  
+
+This project addresses these issues by designing a **fully decentralized system** that:
+- Distributes decision-making  
+- Balances load dynamically  
+- Handles node failures gracefully  
 
 ---
 
-## 📂 Project Structure
-```
-OS-Mini-Project/
-│── src/
-│   ├── main.cpp        # Entry point of the program
-│   ├── <source_files>  # Core implementation files
-│   ├── <header_files>  # Header definitions
-│
-│── README.md
-```
+## Objectives
+- Design a decentralized task execution system  
+- Implement dynamic load balancing using real-time metrics  
+- Eliminate dependency on a central scheduler  
+- Ensure fault tolerance and recovery  
+- Prevent indefinite execution using timeout mechanisms  
 
 ---
 
-## ⚙️ How to Run
+## Key Features
 
-### 1. Clone the Repository
+### 1. Decentralized Architecture
+Each node operates independently and participates equally in the network. No node has special privileges.
+
+### 2. Gossip-Based Load Sharing
+Nodes periodically broadcast their CPU load using UDP. This allows all nodes to maintain an approximate view of the network.
+
+### 3. Load-Based Scheduling
+Tasks are assigned to the node with the lowest current load, improving efficiency and resource utilization.
+
+### 4. Remote Task Execution
+Tasks are executed on remote nodes using TCP communication.
+
+### 5. Secure File Transfer
+Compiled binaries are transferred using SCP over SSH.
+
+### 6. Multithreading
+Each node handles multiple responsibilities concurrently:
+- Sending load updates  
+- Listening for other nodes  
+- Handling execution requests  
+
+### 7. Fault Tolerance
+The system detects failures during execution and handles:
+- Node crashes  
+- Network failures  
+- Execution errors  
+
+### 8. Timeout Protection
+Prevents infinite loops or long-running tasks using a timeout mechanism.
+
+### 9. Rescue Recovery System
+If a remote node fails:
+- Partial progress is retrieved  
+- Execution resumes locally  
+
+---
+
+## System Architecture
+
+Each node runs three concurrent components:
+
+- **Gossip Sender:** Broadcasts current CPU load using UDP every few seconds.
+- **Gossip Listener:** Receives load data from other nodes and maintains the least-loaded node.
+- **TCP Server:** Accepts execution requests, executes tasks, and returns output.
+
+---
+
+## Workflow
+
+### Step 1: Node Initialization
 ```bash
-git clone https://github.com/sayxnn17/OS-Mini-Project.git
-cd OS-Mini-Project/src
+./node
 ```
+- Determines the node’s local IP address
+- Starts gossip sender, listener, and TCP server
+- Begins load broadcasting
 
-### 2. Compile the Code
+### Step 2: Load Exchange (Gossip Protocol)
+Nodes continuously exchange messages:
+```text
+LOAD:<value>
+```
+- Each node updates its knowledge of other nodes
+- The least-loaded node is tracked dynamically
+
+### Step 3: Task Submission
 ```bash
-g++ *.cpp -o output
+./node submit test.c
+```
+- Compiles the file into `/tmp/payload`
+- Selects the least-loaded node
+
+### Step 4: Task Execution Pipeline
+**If remote node is selected:**
+- Transfer binary using SCP
+- Connect via TCP
+- Send execution request
+
+**If local node is selected:**
+- Execute locally
+- Output is captured and returned
+
+### Step 5: Failure Handling (Rescue System)
+If remote execution fails:
+- Detect error or timeout
+- Attempt to fetch `/tmp/progress.txt`
+- Switch execution to local node
+- Resume execution
+
+---
+
+## Project Structure
+```text
+.
+├── node.c        # Core logic (networking + execution)
+├── common.h      # Shared constants
+├── nodes.txt     # IP to username mapping
+└── test files    # Sample programs
 ```
 
-### 3. Run the Program
+---
+
+## Setup Instructions
+
+**1. Install Dependencies**
 ```bash
-./output
+sudo apt update
+sudo apt install gcc openssh-server -y
+```
+
+**2. Start SSH Service**
+```bash
+sudo systemctl start ssh
+```
+
+**3. Configure SSH Access**
+```bash
+ssh-keygen
+ssh-copy-id username@IP
+```
+
+**4. Configure Nodes**
+Create a `nodes.txt` file:
+```text
+<IP_ADDRESS> <USERNAME>
+```
+
+**5. Compile**
+```bash
+gcc node.c -o node -pthread
+```
+
+**6. Run Node**
+```bash
+./node
+```
+
+**7. Submit Task**
+```bash
+./node submit test.c
 ```
 
 ---
 
-## 🧠 Concepts Covered
-- Process creation and execution
-- File handling mechanisms
-- Command parsing and execution
-- Basic OS-level abstractions
+## Test Programs
+
+**Normal Program**
+```c
+#include <stdio.h>
+int main(){ printf("Hello System\n"); }
+```
+
+**Infinite Loop (Timeout Test)**
+```c
+int main(){ while(1){} }
+```
+
+**Crash Test**
+```c
+int main(){ int *p=NULL; *p=5; }
+```
+
+**Heavy CPU Task**
+```c
+int main(){ for(long long i=0;i<1e10;i++); }
+```
 
 ---
 
+## Design Decisions
+- **UDP for gossip:** Lightweight and fast
+- **TCP for execution:** Reliable communication
+- **SCP for transfer:** Avoids custom protocols
+- **Multithreading:** Parallel processing
+- **Mutex locks:** Thread safety
+- **Timeout:** Prevents system hang
 
-## 🎯 Objective
-The aim of this project is to strengthen understanding of Operating System concepts by implementing them in a structured and practical way.
+---
+
+## Limitations
+- Works only in LAN environments
+- Requires SSH setup
+- No centralized monitoring
+- No persistent task queue
+- Limited recovery (basic progress handling)
 
 ---
 
-## 🔮 Future Improvements
-
-- Introduce multi-procesing like feature across the machines
-- Improve error handling and robustness
+## Future Improvements
+- Custom file transfer mechanism
+- Distributed task queue
+- Authentication and security enhancements
+- WAN support (NAT traversal)
+- Monitoring dashboard
 
 ---
+
+## Conclusion
+This project demonstrates a decentralized approach to distributed task execution. By combining gossip-based load sharing, dynamic scheduling, and fault tolerance, it achieves efficient and reliable execution without a central coordinator.
+
+**One-Line Summary:** Decentralized load-balanced task execution using gossip protocol, TCP communication, and fault-tolerant recovery.
