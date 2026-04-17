@@ -1,3 +1,6 @@
+// This program demonstrates fault tolerance by simulating a crash mid-execution
+// and showing how the system resumes from the last saved progress when restarted.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
