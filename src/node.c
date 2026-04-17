@@ -82,6 +82,7 @@ void* shout_load(void* arg) {
 void* listen_load(void* arg) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     int opt = 1;
+
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     #ifdef SO_REUSEPORT
     setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
@@ -93,7 +94,7 @@ void* listen_load(void* arg) {
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("[!] UDP Bind failed");
+        perror("[!] UDP bind failed");
         return NULL;
     }
 
@@ -101,25 +102,39 @@ void* listen_load(void* arg) {
     struct sockaddr_in sender;
     socklen_t len = sizeof(sender);
 
-    while(1) {
+    while (1) {
         memset(buf, 0, sizeof(buf));
-        recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr*)&sender, &len);
+
+        if (recvfrom(sock, buf, sizeof(buf), 0,
+                     (struct sockaddr*)&sender, &len) <= 0) {
+            continue;  // ignore failed receives
+        }
 
         float rcv_load;
         if (sscanf(buf, "LOAD:%f", &rcv_load) == 1) {
+
             char sender_ip[50];
-            strcpy(sender_ip, inet_ntoa(sender.sin_addr));
-            
-            if (strcmp(sender_ip, my_real_ip) != 0 && strcmp(sender_ip, "127.0.0.1") != 0) {
+            strncpy(sender_ip, inet_ntoa(sender.sin_addr), sizeof(sender_ip) - 1);
+            sender_ip[sizeof(sender_ip) - 1] = '\0';
+
+            // Ignore self and localhost
+            if (strcmp(sender_ip, my_real_ip) != 0 &&
+                strcmp(sender_ip, "127.0.0.1") != 0) {
+
                 pthread_mutex_lock(&lock);
+
                 if (rcv_load < min_load) {
                     min_load = rcv_load;
-                    strcpy(best_ip, sender_ip);
+
+                    strncpy(best_ip, sender_ip, sizeof(best_ip) - 1);
+                    best_ip[sizeof(best_ip) - 1] = '\0';
                 }
+
                 pthread_mutex_unlock(&lock);
             }
         }
     }
+
     return NULL;
 }
 
@@ -183,7 +198,7 @@ void submit_task(char *file) {
 
     char cmd[512];
 
-    // Compile dynamically (FIXED BUG 🔥)
+    // Compile dynamically 
     snprintf(cmd, sizeof(cmd), "gcc %s -o /tmp/payload", file);
 
     if (system(cmd) != 0) {
@@ -200,28 +215,43 @@ void submit_task(char *file) {
 
 retry:
 
-    // ---------- REMOTE EXECUTION ----------
-    if (strcmp(target_ip, "127.0.0.1") != 0 &&
-        strcmp(target_ip, my_real_ip) != 0) {
+    // ================= RESCUE SYSTEM =================
+if (n <= 0 || strncmp(res, "ERROR", 5) == 0) {
+
+    printf("\n[!] Remote node execution failed.\n");
+
+    // If failure happened on a remote node, try recovery
+    if (strcmp(target_ip, my_real_ip) != 0) {
 
         char user[50];
+        get_ssh_user(target_ip, user);
 
-        if (!get_ssh_user(target_ip, user)) {
-            printf("[!] Unknown IP. Switching local\n");
-            strcpy(target_ip, my_real_ip);
-            goto retry;
-        }
+        printf("[*] Attempting to retrieve progress from remote node...\n");
 
         snprintf(cmd, sizeof(cmd),
-            "scp -o BatchMode=yes -o StrictHostKeyChecking=no /tmp/payload %s@%s:/tmp/payload 2>/dev/null",
-            user, target_ip);
+                 "scp %s@%s:/tmp/progress.txt /tmp/progress.txt 2>/dev/null",
+                 user, target_ip);
 
-        if (system(cmd) != 0) {
-            printf("[!] SCP failed. Switching local\n");
-            strcpy(target_ip, my_real_ip);
-            goto retry;
-        }
+        system(cmd);
+
+        printf("[*] Switching to local execution for recovery...\n");
+
+        // Redirect execution to local machine
+        strncpy(target_ip, my_real_ip, sizeof(target_ip) - 1);
+        target_ip[sizeof(target_ip) - 1] = '\0';
+
+        goto retry;
     }
+    else {
+        printf("[!] Local execution also failed. Aborting.\n");
+    }
+}
+else {
+    printf("\n--- RESULT (Processed by %s) ---\n%.*s\n",
+           target_ip, n, res);
+}
+
+close(sock);
 
 
     // ---------- TCP CONNECT ----------
